@@ -13,3 +13,6 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// actually start the server
+startServer();

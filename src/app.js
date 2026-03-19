@@ -12,4 +12,4 @@ app.use(express.json());
 
 app.use("/auth", authRoutes);
 
-module.exports = connectDB;
+module.exports = app;
