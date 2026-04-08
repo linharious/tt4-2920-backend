@@ -1,11 +1,10 @@
-const user = require("../models/user");
+const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const generateToken = (id, email) => {
   const jwtSecret = "secret3001";
-
-  jwt.sign({ id, email }, jwtSecret, { expiresIn: "1d" });
+  return jwt.sign({ id, email }, jwtSecret, { expiresIn: "1d" });
 };
 
 const serializeUser = (user) => ({
@@ -20,16 +19,13 @@ const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    console.log(name, email, password);
-
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "name, email, password are required",
-        //   code: 400,
       });
     }
 
-    const existedUser = await user.findOne({
+    const existedUser = await User.findOne({
       email: String(email).toLowerCase(),
     });
 
@@ -41,27 +37,20 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await user.create({
+    const newUser = await User.create({
       name,
       email,
-      password: hashedPw,
+      password: hashedPassword,
     });
-
-    // console.log(user);
 
     return res.status(201).json({
       message: "user registered successfully",
       data: {
-        user: {
-          id: user_id,
-          name: user.name,
-          email: user.email,
-          createAt: user.createAt,
-          updateAt: user.updateAt,
-        },
+        user: serializeUser(newUser),
       },
     });
   } catch (error) {
+    console.log(error);
     return res.status(500).json({
       message: "error while registering user",
     });
@@ -70,153 +59,101 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { email, password } = req.body;
 
-    console.log(name, email, password);
-
-    if (!name || !email || !password) {
+    if (!email || !password) {
       return res.status(400).json({
-        message: "Name, Email and Password are required!",
+        message: "Email and Password are required!",
       });
     }
 
-    const existingUser = await User.findOne({
-      email: String(email).toLowerCase(),
-    });
+    const user = await User.findOne({ email: String(email).toLowerCase() });
 
-    if (existingUser) {
-      return res.status(409).json({
-        message: "Email is already registered!",
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password",
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-    });
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
 
-    return res.status(201).json({
-      message: "User registered successfully.",
+    const token = generateToken(String(user._id), user.email);
+
+    return res.json({
+      message: "Login successful.",
       data: {
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
+        token,
+        user: serializeUser(user),
       },
     });
   } catch (error) {
     console.log(error);
     return res.status(500).json({
-      message: "Error while registering user.",
+      message: "Error while logging in.",
     });
   }
 };
 
-const login = async (req, res) => {
-    try{
-        const { email, password } = req.body;
-
-        if(!email || !password){
-            return res.status(400).json({
-                message: "Email and Password are required!"
-            });
-        }
-
-        const user = await User.findOne({email: String(email).toLowerCase()});
-
-        if(!user){
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-
-        if(!isPasswordValid){
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
-
-        const token = generateToken(String(user._id), user.email);
-
-        return res.json({
-            message: "Login successful.",
-            data: {
-                token,
-                user: {
-                    id: user._id,
-                    name: user.name,
-                    email: user.email,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt
-                }
-            }
-        });
-    }
-    catch(error){
-        console.log(error);
-        return res.status(500).json({
-            message: "Error while logging in."
-        });
-    }
-}
-
-const getMe = (req, res) => {
-  try{
-        if(!req.user || !req.user.id){
-            return res.status(401).json({
-                message: "Unauthorized"
-            });
-        }
-
-        const user = await User.findById(req.user.id).select("-password");
-
-        if(!user){
-            return res.status(404).json({
-                message: "User not found."
-            });
-        }
-
-        return res.json({
-            message: "Authenticated user fecthed successfully.",
-            data: {
-                user
-            }
-        });
-    }
-    catch(error){
-        console.log(error);
-        return res.status(500).json({
-            message: "Error while fetching authenticated user."
-        });
-    }
-    
-}
-
-const listUsers = async (req, res) => {
-    if(!req.user || !req.user.id){
-        return res.status(401).json({
-            message: "Unauthorized"
-        });
+const getMe = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
     }
 
-    const users = await User.find({_id: { $ne: req.user.id}})
-        .select("-password")
-        .sort({name: 1});
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
 
     return res.json({
-        message: "Authenticated user fecthed successfully.",
-        data: {
-            users: users.map(serializeUser)
-        }
+      message: "Authenticated user fetched successfully.",
+      data: {
+        user: serializeUser(user),
+      },
     });
-}
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Error while fetching authenticated user.",
+    });
+  }
+};
 
-module.exports = { register, login };
+const listUsers = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    const users = await User.find({ _id: { $ne: req.user.id } })
+      .select("-password")
+      .sort({ name: 1 });
+
+    return res.json({
+      message: "Users fetched successfully.",
+      data: {
+        users: users.map(serializeUser),
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Error while fetching users.",
+    });
+  }
+};
+
+module.exports = { register, login, getMe, listUsers };

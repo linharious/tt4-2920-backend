@@ -23,10 +23,6 @@ const authMiddleware = (req, res, next) => {
       message: "Invalid or expired token",
     });
   }
-
-  return res.json({
-    message: "middleware works",
-  });
 };
 
 module.exports = { authMiddleware };
