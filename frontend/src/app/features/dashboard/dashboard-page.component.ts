@@ -1,14 +1,15 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, effect, OnDestroy } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 
 import { AuthService } from '../../core/auth.service';
 import { TaskItem, UserProfile } from '../../core/models';
 import { TaskService } from '../../core/task.service';
 import { UserService } from '../../core/user.service';
+import { WebSocketService } from '../../core/websocket.service';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -17,12 +18,13 @@ import { UserService } from '../../core/user.service';
   templateUrl: './dashboard-page.component.html',
   styleUrl: './dashboard-page.component.css',
 })
-export class DashboardPageComponent {
+export class DashboardPageComponent implements OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly taskService = inject(TaskService);
   private readonly userService = inject(UserService);
   private readonly router = inject(Router);
+  private readonly webSocketService = inject(WebSocketService);
 
   readonly currentUser = computed(() => this.authService.currentUser());
   readonly tasks = signal<TaskItem[]>([]);
@@ -31,6 +33,8 @@ export class DashboardPageComponent {
   readonly isLoading = signal(true);
   readonly isSavingTask = signal(false);
   readonly editingTaskId = signal<string | null>(null);
+
+  private taskEventsSubscription: Subscription | null = null;
 
   readonly taskForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.minLength(3)]],
@@ -42,6 +46,43 @@ export class DashboardPageComponent {
 
   constructor() {
     this.loadDashboard();
+    this.setupWebSocket();
+  }
+
+  ngOnDestroy(): void {
+    if (this.taskEventsSubscription) {
+      this.taskEventsSubscription.unsubscribe();
+    }
+    this.webSocketService.disconnect();
+  }
+
+  private setupWebSocket(): void {
+    // Connect to WebSocket
+    this.webSocketService.connect();
+
+    // Listen for task events and update the list in real-time
+    this.taskEventsSubscription = this.webSocketService.taskEvents$.subscribe((event) => {
+      if (!event) return;
+
+      const currentTasks = [...this.tasks()];
+
+      if (event.type === 'created' && event.task) {
+        // Add new task to the list
+        currentTasks.unshift(event.task);
+        this.tasks.set(currentTasks);
+      } else if (event.type === 'updated' && event.task) {
+        // Find and update the task
+        const index = currentTasks.findIndex((t) => t._id === event.task!._id);
+        if (index !== -1) {
+          currentTasks[index] = event.task;
+          this.tasks.set([...currentTasks]);
+        }
+      } else if (event.type === 'deleted' && event.taskId) {
+        // Remove the task from the list
+        const filteredTasks = currentTasks.filter((t) => t._id !== event.taskId);
+        this.tasks.set(filteredTasks);
+      }
+    });
   }
 
   get isEditing(): boolean {

@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Task = require("../models/Task");
 const User = require("../models/user");
+const { broadcastTaskEvent } = require("../utils/socketManager");
 
 const taskPopulate = [
   { path: "userId", select: "_id name email" },
@@ -62,6 +63,12 @@ const createTask = async (req, res) => {
       assignedUserId: resolvedAssignedUserId,
     });
     await task.populate(taskPopulate);
+
+    // Broadcast task creation event to all clients
+    broadcastTaskEvent("task:created", {
+      type: "created",
+      task,
+    });
 
     return res.status(201).json({
       message: "Task created successfully.",
@@ -126,6 +133,12 @@ const deleteTask = async (req, res) => {
     }
 
     await task.deleteOne();
+
+    // Broadcast task deletion event to all clients
+    broadcastTaskEvent("task:deleted", {
+      type: "deleted",
+      taskId: id,
+    });
 
     return res.status(200).json({
       message: "Task Deleted successfully.",
@@ -198,6 +211,12 @@ const updateTask = async (req, res) => {
       new: true,
       runValidators: true,
     }).populate(taskPopulate);
+
+    // Broadcast task update event to all clients
+    broadcastTaskEvent("task:updated", {
+      type: "updated",
+      task: updatedTask,
+    });
 
     return res.status(200).json({
       message: "Task Updated successfully.",
