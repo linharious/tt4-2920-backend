@@ -1,5 +1,12 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, computed, inject, signal, effect, OnDestroy } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  signal,
+  effect,
+  OnDestroy,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin, Subscription } from 'rxjs';
@@ -61,28 +68,34 @@ export class DashboardPageComponent implements OnDestroy {
     this.webSocketService.connect();
 
     // Listen for task events and update the list in real-time
-    this.taskEventsSubscription = this.webSocketService.taskEvents$.subscribe((event) => {
-      if (!event) return;
+    this.taskEventsSubscription = this.webSocketService.taskEvents$.subscribe(
+      (event) => {
+        if (!event) return;
 
-      const currentTasks = [...this.tasks()];
+        const currentTasks = [...this.tasks()];
 
-      if (event.type === 'created' && event.task) {
-        // Add new task to the list
-        currentTasks.unshift(event.task);
-        this.tasks.set(currentTasks);
-      } else if (event.type === 'updated' && event.task) {
-        // Find and update the task
-        const index = currentTasks.findIndex((t) => t._id === event.task!._id);
-        if (index !== -1) {
-          currentTasks[index] = event.task;
-          this.tasks.set([...currentTasks]);
+        if (event.type === 'created' && event.task) {
+          // Add new task to the list
+          currentTasks.unshift(event.task);
+          this.tasks.set(currentTasks);
+        } else if (event.type === 'updated' && event.task) {
+          // Find and update the task
+          const index = currentTasks.findIndex(
+            (t) => t._id === event.task!._id,
+          );
+          if (index !== -1) {
+            currentTasks[index] = event.task;
+            this.tasks.set([...currentTasks]);
+          }
+        } else if (event.type === 'deleted' && event.taskId) {
+          // Remove the task from the list
+          const filteredTasks = currentTasks.filter(
+            (t) => t._id !== event.taskId,
+          );
+          this.tasks.set(filteredTasks);
         }
-      } else if (event.type === 'deleted' && event.taskId) {
-        // Remove the task from the list
-        const filteredTasks = currentTasks.filter((t) => t._id !== event.taskId);
-        this.tasks.set(filteredTasks);
-      }
-    });
+      },
+    );
   }
 
   get isEditing(): boolean {
@@ -109,7 +122,9 @@ export class DashboardPageComponent implements OnDestroy {
           this.users.set(users.data.users);
         },
         error: (error) => {
-          this.pageError.set(error.error?.message ?? 'Could not load the dashboard.');
+          this.pageError.set(
+            error.error?.message ?? 'Could not load the dashboard.',
+          );
         },
       });
   }
@@ -120,23 +135,29 @@ export class DashboardPageComponent implements OnDestroy {
       return;
     }
 
-    const editingTask = this.tasks().find((task) => task._id === this.editingTaskId());
-    const isOwner = editingTask ? editingTask.userId._id === currentUser.id : true;
+    const editingTask = this.tasks().find(
+      (task) => task._id === this.editingTaskId(),
+    );
+    const isOwner = editingTask
+      ? editingTask.userId._id === currentUser.id
+      : true;
 
     if (!editingTask && this.taskForm.controls.title.invalid) {
       this.taskForm.controls.title.markAsTouched();
       return;
     }
 
-    const payload = editingTask && !isOwner
-      ? { done: this.taskForm.controls.done.getRawValue() }
-      : {
-          title: this.taskForm.controls.title.getRawValue(),
-          description: this.taskForm.controls.description.getRawValue(),
-          priority: this.taskForm.controls.priority.getRawValue(),
-          assignedUserId: this.taskForm.controls.assignedUserId.getRawValue() || null,
-          done: this.taskForm.controls.done.getRawValue(),
-        };
+    const payload =
+      editingTask && !isOwner
+        ? { done: this.taskForm.controls.done.getRawValue() }
+        : {
+            title: this.taskForm.controls.title.getRawValue(),
+            description: this.taskForm.controls.description.getRawValue(),
+            priority: this.taskForm.controls.priority.getRawValue(),
+            assignedUserId:
+              this.taskForm.controls.assignedUserId.getRawValue() || null,
+            done: this.taskForm.controls.done.getRawValue(),
+          };
 
     this.isSavingTask.set(true);
 
@@ -170,7 +191,9 @@ export class DashboardPageComponent implements OnDestroy {
     this.taskService.updateTask(task._id, { done: !task.done }).subscribe({
       next: () => this.refreshTasks(),
       error: (error) => {
-        this.pageError.set(error.error?.message ?? 'Could not update the status.');
+        this.pageError.set(
+          error.error?.message ?? 'Could not update the status.',
+        );
       },
     });
   }
@@ -184,7 +207,9 @@ export class DashboardPageComponent implements OnDestroy {
         this.refreshTasks();
       },
       error: (error) => {
-        this.pageError.set(error.error?.message ?? 'Could not remove the task.');
+        this.pageError.set(
+          error.error?.message ?? 'Could not remove the task.',
+        );
       },
     });
   }
@@ -215,7 +240,9 @@ export class DashboardPageComponent implements OnDestroy {
         this.tasks.set(response.data.tasks);
       },
       error: (error) => {
-        this.pageError.set(error.error?.message ?? 'Could not reload the tasks.');
+        this.pageError.set(
+          error.error?.message ?? 'Could not reload the tasks.',
+        );
       },
     });
   }

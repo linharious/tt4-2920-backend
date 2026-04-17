@@ -60,23 +60,35 @@ export class WebSocketService {
       });
 
       // Listen for task events
-      this.socket.on('task:created', (data: { type: string; task: TaskItem }) => {
-        this.ngZone.run(() => {
-          this.taskEventsSubject.next({ type: 'created', task: data.task });
-        });
-      });
+      this.socket.on(
+        'task:created',
+        (data: { type: string; task: TaskItem }) => {
+          this.ngZone.run(() => {
+            this.taskEventsSubject.next({ type: 'created', task: data.task });
+          });
+        },
+      );
 
-      this.socket.on('task:updated', (data: { type: string; task: TaskItem }) => {
-        this.ngZone.run(() => {
-          this.taskEventsSubject.next({ type: 'updated', task: data.task });
-        });
-      });
+      this.socket.on(
+        'task:updated',
+        (data: { type: string; task: TaskItem }) => {
+          this.ngZone.run(() => {
+            this.taskEventsSubject.next({ type: 'updated', task: data.task });
+          });
+        },
+      );
 
-      this.socket.on('task:deleted', (data: { type: string; taskId: string }) => {
-        this.ngZone.run(() => {
-          this.taskEventsSubject.next({ type: 'deleted', taskId: data.taskId });
-        });
-      });
+      this.socket.on(
+        'task:deleted',
+        (data: { type: string; taskId: string }) => {
+          this.ngZone.run(() => {
+            this.taskEventsSubject.next({
+              type: 'deleted',
+              taskId: data.taskId,
+            });
+          });
+        },
+      );
 
       this.socket.on('error', (error: string) => {
         this.ngZone.run(() => {

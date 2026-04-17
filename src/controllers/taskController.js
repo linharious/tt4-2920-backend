@@ -197,7 +197,8 @@ const updateTask = async (req, res) => {
         updatePayload.priority = priority;
       }
 
-      const resolvedAssignedUserId = await resolveAssignedUserId(assignedUserId);
+      const resolvedAssignedUserId =
+        await resolveAssignedUserId(assignedUserId);
       if (resolvedAssignedUserId && resolvedAssignedUserId.error) {
         return res.status(400).json({ message: resolvedAssignedUserId.error });
       }
